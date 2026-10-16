@@ -1,0 +1,291 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src * data: gap: content: https://ssl.gstatic.com; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'">
+    <script src="components/loader.js"></script>
+    <link rel="stylesheet" href="components/loader.css">
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333333;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            color: #333333;
+            margin-bottom: 10px;
+        }
+
+        .btn-group {
+            margin: 12px 0;
+        }
+
+        button {
+            padding: 10px 16px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            margin: 4px;
+            border: none;
+            border-radius: 8px;
+            background-color: #007aff;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .btn-preset { background-color: #5856d6; }
+        .btn-pause { background-color: #ff9500; }
+        .btn-reset { background-color: #8e8e93; }
+
+        /* 必要なものと目安の案内エリア */
+        #infoArea {
+            max-width: 350px;
+            margin: 10px auto;
+            padding: 12px;
+            background-color: #eef2ff;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            text-align: left;
+            line-height: 1.4;
+            color: #444444;
+        }
+
+        time {
+            display: block;
+            font-size: 3.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #222222;
+        }
+
+        .progress-container {
+            width: 100%;
+            max-width: 350px;
+            height: 14px;
+            background-color: #e5e5ea;
+            border-radius: 7px;
+            margin: 0 auto 20px auto;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 100%;
+            background-color: #34c759;
+            transition: width 0.3s linear;
+        }
+
+        /* メッセージエリア（通常時・小さい状態） */
+        #messageArea {
+            max-width: 350px;
+            height: 80px;
+            margin: 15px auto 0 auto;
+            text-align: left;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background-color: #ffffff;
+            color: #333333;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+
+        /* メッセージエリア（スタート時・大きい状態） */
+        #messageArea.large {
+            height: 200px;
+            font-size: 1.1rem;
+            border: 2px solid #007aff;
+            background-color: #f0f8ff;
+        }
+
+        .msg-item {
+            padding: 4px 0;
+            border-bottom: 1px dashed #e0e0e0;
+        }
+    </style>
+
+    <script>
+        let totalCount = 80;  
+        let count = 80;       
+        let id = null;        
+        let isRunning = false;
+        let dom;
+        let progressBar;
+        let titleDom;
+
+        // 料理ごとの「必要なもの」と「目安」
+        const foodInfo = {
+            'ソーメン': '【目安】1分20秒<br>【必要なもの】鍋、たっぷりのお湯、ザル、もみ洗い用の冷水',
+            'ラーメン': '【目安】3分00秒<br>【必要なもの】鍋、お湯、スープ用丼、箸・ザル',
+            'パスタ': '【目安】7分00秒<br>【必要なもの】深鍋、お湯（水1Lに対し塩10g）、トング・ザル'
+        };
+
+        function count2time(count) {                            
+            let seconds, minutes, time;
+            minutes = Math.floor(count / 60);
+            minutes = ("0" + minutes).slice(-2);
+            seconds = count % 60;
+            seconds = ("0" + seconds).slice(-2);
+            time = minutes + ":" + seconds;
+            return time;
+        }
+
+        function init() {
+            dom = document.getElementById("count");
+            progressBar = document.getElementById("progress-bar");
+            titleDom = document.getElementById("timer-title");
+
+            setPreset(80, 'ソーメン');
+        }
+
+        function setPreset(seconds, name) {
+            resetTimer();
+            totalCount = seconds;
+            count = seconds;
+            titleDom.textContent = name + "タイマー";
+            document.getElementById("infoArea").innerHTML = foodInfo[name];
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            dom.textContent = count2time(count);
+
+            let percent = (count / totalCount) * 100;
+            if (percent < 0) percent = 0;
+            progressBar.style.width = percent + "%";
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+
+            if (count <= 0) {
+                count = totalCount;
+                document.getElementById('messageArea').innerHTML = '';
+            }
+
+            isRunning = true;
+            document.getElementById("start").disabled = true;
+            document.getElementById("pause").disabled = false;
+
+            // スタート時：プリセットボタンとガイドを隠し、メッセージ欄を大きくする
+            document.getElementById("preset-group").style.display = "none";
+            document.getElementById("infoArea").style.display = "none";
+            document.getElementById("messageArea").classList.add("large");
+
+            if (count === totalCount) {
+                writeMessage("タイマースタート！美味しく作りましょう！");
+            } else {
+                writeMessage("タイマーを再開しました");
+            }
+
+            main();
+        }
+
+        function pauseTimer() {
+            if (!isRunning) return;
+
+            clearTimeout(id);
+            isRunning = false;
+            document.getElementById("start").disabled = false;
+            document.getElementById("pause").disabled = true;
+            writeMessage("一時停止しました");
+        }
+
+        function resetTimer() {
+            clearTimeout(id);
+            isRunning = false;
+            count = totalCount;
+            updateDisplay();
+
+            document.getElementById("start").disabled = false;
+            document.getElementById("pause").disabled = true;
+            document.getElementById('messageArea').innerHTML = '';
+
+            // リセット時：ボタンとガイドを再表示し、メッセージ欄を小さく戻す
+            document.getElementById("preset-group").style.display = "block";
+            document.getElementById("infoArea").style.display = "block";
+            document.getElementById("messageArea").classList.remove("large");
+        }
+
+        function main() {
+            if (!isRunning) return;
+
+            if (count == 60) {
+                writeMessage("残り1分！麺をかるくほぐしましょう");
+            } else if (count == 30) {
+                writeMessage("残り30秒！ザルや器を用意しましょう");
+            } else if (count == 10) {
+                writeMessage("残り10秒！火を止める準備！");
+            } else if (count == 0) {
+                writeMessage("時間です！素早くお湯を切ってください！");
+                updateDisplay();
+                
+                document.getElementById("start").disabled = false;
+                document.getElementById("pause").disabled = true;
+                isRunning = false;
+
+                // 終了時：ボタンとガイドを再表示し、メッセージ欄を小さく戻す
+                document.getElementById("preset-group").style.display = "block";
+                document.getElementById("infoArea").style.display = "block";
+                document.getElementById("messageArea").classList.remove("large");
+                return;
+            }
+
+            updateDisplay();
+            count--;
+
+            id = setTimeout(main, 1000);
+        }
+
+        function writeMessage(message) {
+            let messageArea = document.getElementById('messageArea');
+            let timeStr = count2time(count);
+            let currentMessage = messageArea.innerHTML;
+            
+            messageArea.innerHTML = `<div class="msg-item"><b>[${timeStr}]</b> ${message}</div>` + currentMessage;
+        }
+    </script>
+</head>
+<body onload="init()">
+
+    <h1 id="timer-title">ソーメンタイマー</h1>
+
+    <!-- プリセット切り替えボタン -->
+    <div id="preset-group" class="btn-group">
+        <button class="btn-preset" onclick="setPreset(80, 'ソーメン');">ソーメン (1:20)</button>
+        <button class="btn-preset" onclick="setPreset(180, 'ラーメン');">ラーメン (3:00)</button>
+        <button class="btn-preset" onclick="setPreset(420, 'パスタ');">パスタ (7:00)</button>
+    </div>
+
+    <!-- 必要なもの・目安情報表示 -->
+    <div id="infoArea"></div>
+
+    <time id="count">00:00</time>
+
+    <div class="progress-container">
+        <div id="progress-bar" class="progress-bar"></div>
+    </div>
+
+    <div class="btn-group">
+        <button onclick="startTimer();" id="start">スタート！</button>
+        <button onclick="pauseTimer();" id="pause" class="btn-pause" disabled>一時停止</button>
+        <button onclick="resetTimer();" id="reset" class="btn-reset">リセット</button>
+    </div>
+
+    <!-- メッセージエリア -->
+    <div id="messageArea"></div>
+
+</body>
+</html>
